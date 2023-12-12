@@ -23,11 +23,15 @@ def plot_tsne(data: pd.DataFrame, name_fig: str, title: str):
     fig = plt.figure(figsize=(8, 8))
     ax = fig.add_subplot(1, 1, 1)
     sns.set_style("darkgrid")
-    sns.scatterplot(x='tsne 1', y='tsne 2', hue='factor', data=data, ax=ax, s=60)
+    # sns.scatterplot(x='tsne 1', y='tsne 2', hue='factor', data=data, ax=ax, s=60)
+
+    sns.scatterplot(x='tsne 1', y='tsne 2', hue='factor', data=data, ax=ax, s=60,
+                    palette=dict(green="#2ca02c",
+                                 mature="#d62728"))
 
     # a = pd.concat({'x': data['tsne 1'], 'y': data['tsne 2']}, axis=1)
     # for i, point in a.iterrows():
-    #     ax.text(point['x'] + .01, point['y'], str(i), fontsize='x-small')
+    #     ax.text(point['x'] + .02, point['y'], str(i), fontdict={'size': 5})
 
     ax.set_title(title, fontsize=20)
     ax.legend(loc='lower left', borderaxespad=0.0)
