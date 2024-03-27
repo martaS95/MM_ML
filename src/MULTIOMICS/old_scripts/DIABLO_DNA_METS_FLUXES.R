@@ -2,16 +2,16 @@ library(mixOmics)
 
 ## LOAD DATA
 
-Xtrain_dna = read.csv('XTRAIN_RNASEQ_MODEL_500_GENES_NOREPS.csv', header = TRUE, sep = ",", row.names=1)
+Xtrain_dna = read.csv('XTRAIN_RNASEQ_ALL_500_GENES_NOREPS.csv', header = TRUE, sep = ",", row.names=1)
 dim(Xtrain_dna)
 
-Xtest_dna = read.csv('XTEST_RNASEQ_MODEL_500_GENES_NOREPS.csv', header = TRUE, sep = ",", row.names=1)
+Xtest_dna = read.csv('XTEST_RNASEQ_ALL_500_GENES_NOREPS.csv', header = TRUE, sep = ",", row.names=1)
 dim(Xtest_dna)
 
-Xtrain_met = read.csv('XTRAIN_METABOLOMICS_NOREPS.csv', header = TRUE, sep = ",", row.names=1)
+Xtrain_met = read.csv('XTRAIN_METABOLOMICS_NOREPS_VT.csv', header = TRUE, sep = ",", row.names=1)
 dim(Xtrain_met)
 
-Xtest_met = read.csv('XTEST_METABOLOMICS_NOREPS.csv', header = TRUE, sep = ",", row.names=1)
+Xtest_met = read.csv('XTEST_METABOLOMICS_NOREPS_VT.csv', header = TRUE, sep = ",", row.names=1)
 dim(Xtest_met)
 
 Xtrain_flux = read.csv('XTRAIN_FLUXOMICS_500_REACTIONS.csv', header = TRUE, sep = ",", row.names=1)
@@ -87,6 +87,7 @@ tune_feats = tune.block.splsda(X = train_data, Y = Y_train, ncomp = 2,
                                design = design1, test.keepX = testn,
                                validation = 'Mfold', folds = 10, nrepeat = 10,
                                dist = "centroids.dist")
+tune_feats$choice.keepX
 
 res = tune_feats$choice.keepX # set the optimal values of features to retain
 res
@@ -101,14 +102,17 @@ final.diablo.model$weights
 final.diablo.model$names
 
 # see selected variables
-selectVar(final.diablo.model, block = 'fluxomics', comp = 1)$fluxomics$name
-selectVar(final.diablo.model, block = 'fluxomics', comp = 2)$fluxomics$name
+reacs1 = selectVar(final.diablo.model, block = 'fluxomics', comp = 1)$fluxomics$name
+reacs2 = selectVar(final.diablo.model, block = 'fluxomics', comp = 2)$fluxomics$name
 
-selectVar(final.diablo.model, block = 'metabolomics', comp = 1)$metabolomics$name
-selectVar(final.diablo.model, block = 'metabolomics', comp = 2)$metabolomics$name
+mets1 = selectVar(final.diablo.model, block = 'metabolomics', comp = 1)$metabolomics$name
+mets2 = selectVar(final.diablo.model, block = 'metabolomics', comp = 2)$metabolomics$name
 
-selectVar(final.diablo.model, block = 'RNASeq', comp = 1)$RNASeq$name
-selectVar(final.diablo.model, block = 'RNASeq', comp = 2)$RNASeq$name
+genes1 = selectVar(final.diablo.model, block = 'RNASeq', comp = 1)$RNASeq$name
+genes2 = selectVar(final.diablo.model, block = 'RNASeq', comp = 2)$RNASeq$name
+
+write.csv(reacs2, 
+          file="featselect_all_reacs2.csv")
 
 Y = final.diablo.model$Y
 
@@ -131,21 +135,26 @@ corr = circosPlot(final.diablo.model, cutoff = 0.90, line = TRUE,
 
 # save corr between features of the dataset
 write.csv(corr, 
-          file="correlation_all_featselect.csv")
+          file="correlation_all_featselect_NEW.csv")
 
 plotLoadings(final.diablo.model, comp = 1, contrib = 'max', method = 'median', ndisplay = 15, size.legend = 1, size.name = 1)
 plotLoadings(final.diablo.model, comp = 2, contrib = 'max', method = 'mean', ndisplay = 15, size.legend = 1, size.name = 1)
 
 
-loads = final.diablo.model$loadings$metabolomics
+loads = final.diablo.model$loadings
 loads
+
+loads = final.diablo.model$loadings$metabolomics
+x = sort(abs(loads[,'comp2']))
+names(x)
+
 
 train_data$metabolomics$shikimic_acid
 median(train_data$metabolomics$ferulic_acid)
 
 
 # model evaluation
-perf.diablo = perf(final.diablo.model, validation = 'loo', 
+perf.diablo = perf(final.diablo.model, validation = 'Mfold', 
                    M = 10, nrepeat = 10, 
                    auc = TRUE) 
 
@@ -153,7 +162,7 @@ perf.diablo = perf(final.diablo.model, validation = 'loo',
 perf.diablo$WeightedVote.error.rate
 perf.diablo$error.rate
 
-#perf.diablo$AveragedPredict.error.rate
+perf.diablo$AveragedPredict.error.rate
 #perf.diablo$WeightedPredict.error.rate
 
 perf.diablo$auc
@@ -178,11 +187,9 @@ data_test = list(RNASeq = Xtest_dna,
 
 predict.diablo = predict(final.diablo.model, newdata = data_test)
 
-predict.diablo$MajorityVote
 
 confusion.mat = get.confusion_matrix(truth = Y_test,
-                                     predicted = predict.diablo$WeightedVote$max.dist[,2])
-confusion.mat
+                                     predicted = predict.diablo$WeightedVote$mahalanobis.dist[,1])
 
 get.BER(confusion.mat)
 

@@ -1,20 +1,18 @@
 library(mixOmics)
 
-library(caret)
-
 ## LOAD DATA
 
-Xtrain_dna = read.csv('XTRAIN_RNASEQ_MODEL_500_GENES_NOREPS.csv', header = TRUE, sep = ",", row.names=1)
+Xtrain_dna = read.csv('XTRAIN_RNASEQ_ALL_500_GENES_NOREPS.csv', header = TRUE, sep = ",", row.names=1)
 dim(Xtrain_dna)
 
-Xtest_dna = read.csv('XTEST_RNASEQ_MODEL_500_GENES_NOREPS.csv', header = TRUE, sep = ",", row.names=1)
+Xtest_dna = read.csv('XTEST_RNASEQ_ALL_500_GENES_NOREPS.csv', header = TRUE, sep = ",", row.names=1)
 dim(Xtest_dna)
 
-Xtrain_met = read.csv('XTRAIN_METABOLOMICS_NOREPS.csv', header = TRUE, sep = ",", row.names=1)
-dim(Xtrain_met)
+Xtrain_flux = read.csv('XTRAIN_FLUXOMICS_500_REACTIONS.csv', header = TRUE, sep = ",", row.names=1)
+dim(Xtrain_flux)
 
-Xtest_met = read.csv('XTEST_METABOLOMICS_NOREPS.csv', header = TRUE, sep = ",", row.names=1)
-dim(Xtest_met)
+Xtest_flux = read.csv('XTEST_FLUXOMICS_500_REACTIONS.csv', header = TRUE, sep = ",", row.names=1)
+dim(Xtest_flux)
 
 ytrain = read.csv('yTRAIN_MODEL_500_GENES_NOREPS.csv', header = TRUE, sep = ",", row.names=1)
 dim(ytrain)
@@ -29,26 +27,23 @@ Y_test = ytest[['state']]
 length(Y_test)
 
 train_data = list(RNASeq = Xtrain_dna, 
-             metabolomics = Xtrain_met)
+                  fluxomics = Xtrain_flux)
 
 lapply(train_data, dim) # check their dimensions
 
 
 # PAIRWISE PLS (this time will select all features instead of the 25 here)
 
-list.keepX = c(25, 25) # select arbitrary values of features to keep
-list.keepY = c(25, 25)
-
 
 # generate pairwise PLS models
 # pls1 <- spls(data[["dna"]], data[["mets"]], 
 #             keepX = list.keepX, keepY = list.keepY)
 
-pls1 <- spls(train_data[["dna"]], train_data[["mets"]], near.zero.var = TRUE)
+pls1 <- spls(train_data[["RNASeq"]], train_data[["fluxomics"]], near.zero.var = TRUE)
 
 
-plotVar(pls1, cutoff = 0.5, title = "RNASeq and Metabolomics", 
-        legend = c("dna", "mets"), 
+plotVar(pls1, cutoff = 0.5, title = "RNASeq and Fluxomics", 
+        legend = c("RNASeq", "fluxomics"), 
         var.names = FALSE, style = 'graphics', 
         pch = c(16, 17), cex = c(2,2), 
         col = c('coral', 'cyan3'))
@@ -59,8 +54,8 @@ cor(pls1$variates$X, pls1$variates$Y)
 # design matrix: 3 options: 0.9, 0.1, and 0.5
 
 # for square matrix filled with 0.1 ??
-design1 = matrix(0.9, ncol = length(train_data), nrow = length(train_data), 
-                dimnames = list(names(train_data), names(train_data)))
+design1 = matrix(0.8, ncol = length(train_data), nrow = length(train_data), 
+                 dimnames = list(names(train_data), names(train_data)))
 diag(design1) = 0 # set diagonal to 0s
 
 design1
@@ -99,18 +94,19 @@ perf.diablo$choice.ncomp$WeightedVote
 
 # find features
 
-keepX = list(RNASeq = c(25, 50, 100, 200, 212, 250), 
-             metabolomics = c(25, 50, 100, 200, 212))
+testn = list(RNASeq = c(25, 50, 100, 200), 
+             fluxomics = c(25, 50, 100, 200))
 
 tune_feats = tune.block.splsda(X = train_data, Y = Y_train, ncomp = 2, 
-                              design = design1, test.keepX = keepX,
-                              validation = 'Mfold', folds = 10, nrepeat = 10,
-                              dist = "centroids.dist")
+                               design = design1, test.keepX = testn,
+                               validation = 'Mfold', folds = 10, nrepeat = 10,
+                               dist = "centroids.dist")
 
 res = tune_feats$choice.keepX # set the optimal values of features to retain
 res
 
 keepX = res
+keepX
 
 # final model with all features
 final.diablo.model = block.splsda(X = train_data, Y = Y_train, ncomp = 2, 
@@ -119,14 +115,22 @@ final.diablo.model = block.splsda(X = train_data, Y = Y_train, ncomp = 2,
 final.diablo.model$design
 
 # see selected variables (in this case I kept it all)
-selectVar(final.diablo.model, block = 'metabolomics', comp = 2)$metabolomics$name 
+reac1 = selectVar(final.diablo.model, block = 'fluxomics', comp = 1)$fluxomics$name
+reac2 = selectVar(final.diablo.model, block = 'fluxomics', comp = 2)$fluxomics$name
+dna1 = selectVar(final.diablo.model, block = 'RNASeq', comp = 1)$RNASeq$name
+dna2 = selectVar(final.diablo.model, block = 'RNASeq', comp = 2)$RNASeq$name
 
+
+write.csv(dna2, 
+          file="featselect_reacs_dna_2.csv")
 
 final.diablo.model
 Y = final.diablo.model$Y
 
 # plotting
+plotDiablo(final.diablo.model, ncomp = 1)
 plotDiablo(final.diablo.model, ncomp = 2)
+
 
 plotIndiv(final.diablo.model, ind.names = FALSE, legend = TRUE, 
           title = 'DIABLO Sample Plots')
@@ -139,24 +143,29 @@ plotVar(final.diablo.model, var.names = FALSE,
         col = c('darkorchid', 'brown1'), cutoff = 0.5)
 
 # correlations between features of the dataset  
-corr = circosPlot(final.diablo.model, cutoff = 0.80, line = TRUE,
-           color.blocks= c('cyan3', 'chartreuse1'),
-           color.cor = c("chocolate3","grey20"), size.labels = 1.5, size.variables = 0.50)
+corr = circosPlot(final.diablo.model, cutoff = 0.95, line = TRUE,
+                  color.blocks= c('cyan3', 'chartreuse1'),
+                  color.cor = c("chocolate3","grey20"), size.labels = 1.5, size.variables = 0.40)
 
 network(final.diablo.model, blocks = c(1,2),
-        color.node = c('cyan3', 'coral'), cutoff = 0.93)
+        color.node = c('cyan3', 'coral'), cutoff = 0.98)
 
 # save corr between features of the dataset
 write.csv(corr, 
-          file="correlation_between_datasets_featselect.csv")
+          file="correlation_RNASEQ_fluxomics_ALLGENES.csv")
 
 # see the impact of each feature in the component 1
-plotLoadings(final.diablo.model, comp = 2, contrib = 'max', method = 'median', ndisplay = 25, size.legend = 1, size.name = 1)
+plotLoadings(final.diablo.model, comp = 1, contrib = 'max', method = 'median', ndisplay = 15, size.legend = 1, size.name = 1)
+plotLoadings(final.diablo.model, comp = 2, contrib = 'max', method = 'median', ndisplay = 15, size.legend = 1, size.name = 1)
 
-loads = final.diablo.model$loadings$RNASeq
 
-write.csv(loads, 
-          file="loading_weight.csv")
+
+loads = final.diablo.model$loadings$fluxomics
+loads
+
+loads = final.diablo.model$loadings$fluxomics
+x = sort(abs(loads[,'comp2']))
+names(x)
 
 # heatmap - only after feature selection
 cimDiablo(final.diablo.model, margins = c(12, 16), size.legend = 0.6)
@@ -164,9 +173,9 @@ cimDiablo(final.diablo.model, margins = c(12, 16), size.legend = 0.6)
 # model evaluation
 perf.diablo = perf(final.diablo.model, validation = 'Mfold', 
                    M = 10, nrepeat = 10, 
-                  auc = TRUE) 
+                   auc = TRUE) 
 
-# perf.diablo$MajorityVote.error.rate
+perf.diablo$MajorityVote.error.rate
 perf.diablo$WeightedVote.error.rate
 perf.diablo$error.rate
 
@@ -179,18 +188,18 @@ perf.diablo$auc
 
 # auroc por cada dataset
 auc.splsda = auroc(final.diablo.model, roc.block = "RNASeq", 
-                   roc.comp = 2, print = FALSE)
-
-
-auroc(final.diablo.model, roc.block = "metabolomics", 
                    roc.comp = 1, print = FALSE)
+
+
+auroc(final.diablo.model, roc.block = "fluxomics", 
+      roc.comp = 1, print = FALSE)
 
 
 
 # check performance TEST DATA
 
 data_test = list(RNASeq = Xtest_dna,
-                 metabolomics = Xtest_met)
+                 fluxomics = Xtest_flux)
 
 predict.diablo = predict(final.diablo.model, newdata = data_test)
 
@@ -198,7 +207,7 @@ predict.diablo$MajorityVote
 predict.diablo$WeightedVote
 
 confusion.mat = get.confusion_matrix(truth = Y_test,
-                                     predicted = predict.diablo$WeightedVote$centroids.dist[,1])
+                                     predicted = predict.diablo$WeightedVote$mahalanobis.dist[,1])
 confusion.mat
 
 get.BER(confusion.mat)
