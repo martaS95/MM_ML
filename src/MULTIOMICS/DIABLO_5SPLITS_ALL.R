@@ -1,5 +1,7 @@
 library(mixOmics)
 
+## SCRIPT TO INTEGRATE ALL OMICS DATASETS: RNASEQ, METABOLOMICS AND FLUXOMICS
+
 ## LOAD DATA
 
 cor_all = list()

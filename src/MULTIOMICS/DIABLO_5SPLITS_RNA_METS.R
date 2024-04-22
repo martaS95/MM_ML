@@ -1,5 +1,7 @@
 library(mixOmics)
 
+## SCRIPT TO INTEGRATE RNASEQ AND METABOLOMICS DATASETS
+
 ## LOAD DATA
 
 cor_all = list()
@@ -180,7 +182,7 @@ write.csv(all_loads_mets[[1]],
 
 all_train_errors[[1]]
 
-# ------------------------------------------ USE DATA SPLIT 1 (2º) -------------------------------------
+# ------------------------------------------ USE DATA SPLIT 1 (second) -------------------------------------
 
 Xtrain_dna_name = paste0(c('XTRAIN_RNASEQ_ALL_GENES_NOREPS_SPLIT_'), 1, '.csv')
 Xtrain_dna = read.csv(Xtrain_dna_name, header = TRUE, sep = ",", row.names=1)

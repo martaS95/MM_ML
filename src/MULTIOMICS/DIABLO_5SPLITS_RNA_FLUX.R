@@ -1,5 +1,7 @@
 library(mixOmics)
 
+## SCRIPT TO INTEGRATE RNASEQ AND FLUXOMICS DATASETS
+
 ## LOAD DATA
 
 cor_all = list()
@@ -177,7 +179,7 @@ write.csv(all_loads_fluxes[[1]],
 all_train_errors[[1]]
 
 
-# ------------------------------------------ USE DATA SPLIT 3 (2) -------------------------------------
+# ------------------------------------------ USE DATA SPLIT 3 (second) -------------------------------------
 i = 2
 
 Xtrain_dna_name = paste0(c('XTRAIN_RNASEQ_ALL_GENES_NOREPS_SPLIT_'), i, '.csv')

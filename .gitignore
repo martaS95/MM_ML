@@ -3,3 +3,7 @@
 
 # ignore all excel
 *.xlsx
+
+# ignore all images
+*.png
+/src/ML/old_scripts_ml/
